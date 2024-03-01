@@ -2,20 +2,14 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log"
 
+	"github.com/ig0rmin/ich/db"
 	"github.com/joho/godotenv"
 	"github.com/sethvargo/go-envconfig"
 )
-
-type DBConfig struct {
-	DBHost     string `env:"ICH_DB_HOST, required"`
-	DBPort     string `env:"ICH_DB_PORT, required"`
-	DBUser     string `env:"ICH_DB_USER, required"`
-	DBPassword string `env:"ICH_DB_PASSWORD, required"`
-	DBName     string `end:"ICH_DB_NAME, required"`
-}
 
 type KafkaConfig struct {
 	BootstrapServers []string `env:"ICH_KAFKA_BOOTSTRAP_SERVERS, delimiter=;, required"`
@@ -25,12 +19,12 @@ type Config struct {
 	// Port to listen
 	Port string `env:"ICH_PORT, default=8080"`
 
-	DB    DBConfig
+	DB    db.Config
 	Kafka KafkaConfig
 }
 
 type Server struct {
-	Cfg Config
+	db *sql.DB
 }
 
 func main() {
@@ -44,4 +38,20 @@ func main() {
 	}
 
 	fmt.Printf("%v\n", cfg)
+
+	dbConn, err := db.Connect(&cfg.DB)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer dbConn.Close()
+
+	err = dbConn.Ping()
+	if err != nil {
+		log.Fatalf("Failed to ping database: %v", err)
+	}
+	log.Println("Connection to DB established")
+
+	if err := db.Migrate(dbConn); err != nil {
+		log.Fatalf("Failed to migrate DB")
+	}
 }
