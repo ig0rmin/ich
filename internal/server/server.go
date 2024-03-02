@@ -10,6 +10,7 @@ import (
 	"github.com/ig0rmin/ich/internal/db"
 	"github.com/ig0rmin/ich/internal/kafka"
 	"github.com/ig0rmin/ich/internal/user"
+	"github.com/ig0rmin/ich/internal/ws"
 
 	"github.com/joho/godotenv"
 	"github.com/sethvargo/go-envconfig"
@@ -70,6 +71,8 @@ func NewServer(cfg *Config) (*Server, error) {
 	user.NewHandler(
 		user.NewService(user.NewRepository(s.db)),
 	).Route(s.router)
+
+	ws.NewHandler().Route(s.router)
 
 	s.server = &http.Server{
 		Addr:    "0.0.0.0:" + cfg.Port,
