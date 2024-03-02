@@ -37,7 +37,12 @@ func Connect(cfg *Config) (*sql.DB, error) {
 	return db, nil
 }
 
-func Migrate(db *sql.DB) error {
+func Migrate(cfg *Config) error {
+	// Migrate closes DB connection after migration, that's why we need a separate one
+	db, err := Connect(cfg)
+	if err != nil {
+		return nil
+	}
 	driver, err := postgres.NewFromDB(db)
 	if err != nil {
 		return err

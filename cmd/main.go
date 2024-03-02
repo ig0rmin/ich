@@ -1,57 +1,24 @@
 package main
 
 import (
-	"context"
-	"database/sql"
-	"fmt"
 	"log"
 
-	"github.com/ig0rmin/ich/db"
-	"github.com/joho/godotenv"
-	"github.com/sethvargo/go-envconfig"
+	"github.com/ig0rmin/ich/internal/server"
 )
 
-type KafkaConfig struct {
-	BootstrapServers []string `env:"ICH_KAFKA_BOOTSTRAP_SERVERS, delimiter=;, required"`
-}
-
-type Config struct {
-	// Port to listen
-	Port string `env:"ICH_PORT, default=8080"`
-
-	DB    db.Config
-	Kafka KafkaConfig
-}
-
-type Server struct {
-	db *sql.DB
-}
-
 func main() {
-	if err := godotenv.Load(); err != nil {
-		log.Fatal(err)
+	var cfg server.Config
+	if err := cfg.Load(); err != nil {
+		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	var cfg Config
-	if err := envconfig.Process(context.Background(), &cfg); err != nil {
-		log.Fatal(err)
-	}
+	log.Printf("%v\n", cfg)
 
-	fmt.Printf("%v\n", cfg)
-
-	dbConn, err := db.Connect(&cfg.DB)
+	s, err := server.NewServer(&cfg)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to start server: %v", err)
 	}
-	defer dbConn.Close()
+	defer s.Close()
 
-	err = dbConn.Ping()
-	if err != nil {
-		log.Fatalf("Failed to ping database: %v", err)
-	}
-	log.Println("Connection to DB established")
-
-	if err := db.Migrate(dbConn); err != nil {
-		log.Fatalf("Failed to migrate DB")
-	}
+	s.Run()
 }
