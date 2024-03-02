@@ -18,7 +18,8 @@ import (
 
 type Config struct {
 	// Port to listen
-	Port string `env:"ICH_PORT, default=8080"`
+	Port         string `env:"ICH_PORT, default=8080"`
+	ServerSecret string `env:"ICH_SERVER_SECRET, required"`
 
 	DB    db.Config
 	Kafka kafka.Config
@@ -69,10 +70,18 @@ func NewServer(cfg *Config) (*Server, error) {
 	})
 
 	user.NewHandler(
-		user.NewService(user.NewRepository(s.db)),
+		user.NewService(user.NewRepository(s.db), cfg.ServerSecret),
 	).Route(s.router)
 
-	ws.NewHandler().Route(s.router)
+	authenticated := s.router.Group("", authMiddleware(cfg.ServerSecret))
+	authenticated.GET("/auth-test", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			user.UserNameKey: c.GetString(user.UserNameKey),
+			user.UserIDKey:   c.GetString(user.UserIDKey),
+		})
+	})
+
+	ws.NewHandler().Route(authenticated)
 
 	s.server = &http.Server{
 		Addr:    "0.0.0.0:" + cfg.Port,

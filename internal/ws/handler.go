@@ -1,11 +1,13 @@
 package ws
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"github.com/ig0rmin/ich/internal/user"
 )
 
 type Handler struct {
@@ -40,6 +42,10 @@ func (h *Handler) Join(c *gin.Context) {
 		Conn:    conn,
 		Message: make(chan string),
 	}
+
+	go func() {
+		client.Message <- fmt.Sprintf(`{"message": "%s joined the chat"}`, c.GetString(user.UserNameKey))
+	}()
 
 	go client.write()
 	client.read()

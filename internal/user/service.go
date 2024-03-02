@@ -10,12 +10,18 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+const (
+	UserNameKey = "username"
+	UserIDKey   = "id"
+)
+
 type Service struct {
 	*Repository
+	serverSecret string
 }
 
-func NewService(r *Repository) *Service {
-	return &Service{r}
+func NewService(r *Repository, serverSecret string) *Service {
+	return &Service{r, serverSecret}
 }
 
 func hashPassword(password string) (string, error) {
@@ -82,12 +88,10 @@ func (s *Service) Login(ctx context.Context, req *LoginUserReq) (*LoginUserRes, 
 		},
 	})
 
-	const secretKey = "afiu/j8piuN54s5l8GoWEQ=="
-
-	ss, err := token.SignedString([]byte(secretKey))
+	ss, err := token.SignedString([]byte(s.serverSecret))
 	if err != nil {
-		return &LoginUserRes{}, err
+		return nil, err
 	}
 
-	return &LoginUserRes{JWT: ss, Username: user.Username, ID: strconv.Itoa(user.ID)}, nil
+	return &LoginUserRes{Token: ss, Username: user.Username, ID: strconv.Itoa(user.ID)}, nil
 }

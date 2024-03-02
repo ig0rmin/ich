@@ -17,7 +17,6 @@ func NewHandler(s *Service) *Handler {
 func (h *Handler) Route(root gin.IRouter) {
 	root.POST("/createUser", h.CreateUser)
 	root.POST("/login", h.Login)
-	root.POST("/logout", h.Logout)
 }
 
 func (h *Handler) CreateUser(c *gin.Context) {
@@ -49,12 +48,5 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
-	c.SetCookie("jwt", resp.JWT, 60*60*24, "/", "localhost", false, true)
-
 	c.JSON(http.StatusOK, resp)
-}
-
-func (h *Handler) Logout(c *gin.Context) {
-	c.SetCookie("jwt", "", -1, "", "", false, true)
-	c.JSON(http.StatusOK, gin.H{"message": "logout successful"})
 }

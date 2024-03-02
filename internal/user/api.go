@@ -27,5 +27,5 @@ type LoginUserReq struct {
 type LoginUserRes struct {
 	ID       string `json:"id"`
 	Username string `json:"username"`
-	JWT      string `json:"jwt"`
+	Token    string `json:"token"`
 }
