@@ -7,15 +7,19 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/ig0rmin/ich/internal/kafka"
+	"github.com/ig0rmin/ich/internal/user"
+	"github.com/ig0rmin/ich/internal/users"
 )
 
 type Handler struct {
 	messages *kafka.Kafka
+	userMgr  *users.UserManager
 }
 
-func NewHandler(messages *kafka.Kafka) *Handler {
+func NewHandler(userMgr *users.UserManager, messages *kafka.Kafka) *Handler {
 	return &Handler{
 		messages: messages,
+		userMgr:  userMgr,
 	}
 }
 
@@ -40,7 +44,11 @@ func (h *Handler) Join(c *gin.Context) {
 
 	log.Printf("New webscoket connection")
 
-	client, err := NewClient(conn, h.messages)
+	userName := c.GetString(user.UserNameKey)
+	h.userMgr.NotifyUserJoined(userName)
+	defer h.userMgr.NotifyUserLeft(userName)
+
+	client, err := NewClient(conn, h.userMgr, h.messages)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create Client"})
 		return

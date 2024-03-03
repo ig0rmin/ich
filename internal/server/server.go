@@ -10,6 +10,7 @@ import (
 	"github.com/ig0rmin/ich/internal/db"
 	"github.com/ig0rmin/ich/internal/kafka"
 	"github.com/ig0rmin/ich/internal/user"
+	"github.com/ig0rmin/ich/internal/users"
 	"github.com/ig0rmin/ich/internal/ws"
 )
 
@@ -26,8 +27,11 @@ type Server struct {
 	db       *sql.DB
 	messages *kafka.Kafka
 	users    *kafka.Kafka
-	server   *http.Server
-	router   *gin.Engine
+
+	userMgr *users.UserManager
+
+	server *http.Server
+	router *gin.Engine
 }
 
 func NewServer(cfg *Config) (*Server, error) {
@@ -57,6 +61,11 @@ func NewServer(cfg *Config) (*Server, error) {
 		return nil, err
 	}
 
+	s.userMgr, err = users.NewUserManager(s.users)
+	if err != nil {
+		return nil, err
+	}
+
 	s.router = gin.Default()
 
 	// Set up routes
@@ -78,7 +87,7 @@ func NewServer(cfg *Config) (*Server, error) {
 		})
 	})
 
-	ws.NewHandler(s.messages).Route(authenticated)
+	ws.NewHandler(s.userMgr, s.messages).Route(authenticated)
 
 	s.server = &http.Server{
 		Addr:    "0.0.0.0:" + cfg.Port,
@@ -94,6 +103,8 @@ func (s *Server) Run() error {
 
 	go s.messages.Run(ctx)
 	go s.users.Run(ctx)
+
+	s.userMgr.Init()
 
 	if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return err
