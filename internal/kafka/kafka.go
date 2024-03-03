@@ -100,8 +100,14 @@ Loop:
 		case r := <-k.unsubscribe:
 			delete(k.receivers, r)
 		case err := <-k.partitionConsumer.Errors():
+			if err == nil {
+				log.Fatalf("Received nil message from Kafka, probably closed connection")
+			}
 			log.Println(err.Error())
 		case msg := <-k.partitionConsumer.Messages():
+			if msg == nil {
+				log.Fatalf("Received nil message from Kafka, probably closed connection")
+			}
 			log.Printf("Kafka receidved message %v from the topic %v", string(msg.Value), k.topic)
 			for r := range k.receivers {
 				r.Receive(msg.Value)
