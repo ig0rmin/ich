@@ -38,7 +38,7 @@ func (h *Handler) Join(c *gin.Context) {
 		return
 	}
 
-	log.Printf("New webscoket connection\n")
+	log.Printf("New webscoket connection")
 
 	client, err := NewClient(conn, h.messages)
 	if err != nil {

@@ -2,6 +2,7 @@ package ws
 
 import (
 	"log"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -9,18 +10,18 @@ import (
 )
 
 type Client struct {
-	Conn     *websocket.Conn
+	conn     *websocket.Conn
 	messages *kafka.Kafka
 	publish  chan []byte
 }
 
 func NewClient(conn *websocket.Conn, messages *kafka.Kafka) (*Client, error) {
 	c := &Client{
-		Conn:     conn,
+		conn:     conn,
 		messages: messages,
 		publish:  make(chan []byte),
 	}
-	//messages.Subscribe(c)
+	messages.Subscribe(c)
 	return c, nil
 }
 
@@ -31,7 +32,7 @@ func (c *Client) Receive(data []byte) error {
 
 func (c *Client) write() {
 	defer func() {
-		c.Conn.Close()
+		c.conn.Close()
 	}()
 
 	for {
@@ -39,7 +40,7 @@ func (c *Client) write() {
 		if !ok {
 			return
 		}
-		if err := c.Conn.WriteJSON(gin.H{"message": msg}); err != nil {
+		if err := c.conn.WriteJSON(gin.H{"message": string(msg)}); err != nil {
 			break
 		}
 	}
@@ -47,11 +48,11 @@ func (c *Client) write() {
 
 func (c *Client) read() {
 	defer func() {
-		c.Conn.Close()
+		c.conn.Close()
 	}()
 
 	for {
-		_, msg, err := c.Conn.ReadMessage()
+		_, msg, err := c.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.Printf("error: %v", err)
@@ -59,9 +60,9 @@ func (c *Client) read() {
 			break
 		}
 
-		log.Printf("Websockets received message: %v\n", string(msg))
+		log.Printf("Websockets received message: %v", strings.TrimSuffix(string(msg), "\n"))
 
-		//c.messages.Publish(msg)
+		c.messages.Publish(msg)
 	}
 }
 
