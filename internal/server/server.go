@@ -11,9 +11,6 @@ import (
 	"github.com/ig0rmin/ich/internal/kafka"
 	"github.com/ig0rmin/ich/internal/user"
 	"github.com/ig0rmin/ich/internal/ws"
-
-	"github.com/joho/godotenv"
-	"github.com/sethvargo/go-envconfig"
 )
 
 type Config struct {
@@ -25,21 +22,12 @@ type Config struct {
 	Kafka kafka.Config
 }
 
-func (c *Config) Load() error {
-	if err := godotenv.Load(); err != nil {
-		return err
-	}
-
-	if err := envconfig.Process(context.Background(), c); err != nil {
-		return err
-	}
-	return nil
-}
-
 type Server struct {
-	db     *sql.DB
-	router *gin.Engine
-	server *http.Server
+	db       *sql.DB
+	messages *kafka.Kafka
+	users    *kafka.Kafka
+	server   *http.Server
+	router   *gin.Engine
 }
 
 func NewServer(cfg *Config) (*Server, error) {
@@ -57,6 +45,15 @@ func NewServer(cfg *Config) (*Server, error) {
 	log.Println("Connection to DB established")
 
 	if err := db.Migrate(&cfg.DB); err != nil {
+		return nil, err
+	}
+
+	s.messages, err = kafka.NewKafka(cfg.Kafka, "topic-messages")
+	if err != nil {
+		return nil, err
+	}
+	s.users, err = kafka.NewKafka(cfg.Kafka, "topic-users")
+	if err != nil {
 		return nil, err
 	}
 
@@ -81,7 +78,7 @@ func NewServer(cfg *Config) (*Server, error) {
 		})
 	})
 
-	ws.NewHandler().Route(authenticated)
+	ws.NewHandler(s.messages).Route(authenticated)
 
 	s.server = &http.Server{
 		Addr:    "0.0.0.0:" + cfg.Port,
@@ -92,12 +89,32 @@ func NewServer(cfg *Config) (*Server, error) {
 }
 
 func (s *Server) Run() error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go s.messages.Run(ctx)
+	go s.users.Run(ctx)
+
 	if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return err
 	}
+
+	// TODO: Shutdown the server
+
+	log.Println("Http server done")
+
+	cancel()
+
+	s.messages.Wait()
+	s.users.Wait()
+
+	log.Println("Kafka done")
+
 	return nil
 }
 
 func (s *Server) Close() {
 	s.db.Close()
+	s.messages.Close()
+	s.users.Close()
 }

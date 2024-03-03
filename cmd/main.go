@@ -3,12 +3,13 @@ package main
 import (
 	"log"
 
+	"github.com/ig0rmin/ich/internal/config"
 	"github.com/ig0rmin/ich/internal/server"
 )
 
 func main() {
 	var cfg server.Config
-	if err := cfg.Load(); err != nil {
+	if err := config.Load(&cfg); err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 

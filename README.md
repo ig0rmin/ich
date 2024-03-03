@@ -2,6 +2,11 @@ ich means Igor's Chat.
 
 ## Testing from CLI
 
+Create one ore more test users:
+```bash
+curl -X POST -d '{"email":"igor@example.com", "username":"Igor", "password":"qwerty123456"}' localhost:8080/createUser
+```
+
 ```bash
 TOKEN=$(curl -s -X POST -d '{"email":"igor@example.com", "password":"qwerty123456"}' localhost:8080/login | jq -r '.token')
 ```

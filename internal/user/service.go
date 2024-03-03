@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -72,7 +73,7 @@ type JWTClaims struct {
 func (s *Service) Login(ctx context.Context, req *LoginUserReq) (*LoginUserRes, error) {
 	user, err := s.Repository.GetUserByEmail(ctx, req.Email)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("Login failed")
 	}
 
 	if err := checkPassword(req.Password, user.Password); err != nil {

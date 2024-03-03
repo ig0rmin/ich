@@ -1,20 +1,22 @@
 package ws
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
-	"github.com/ig0rmin/ich/internal/user"
+	"github.com/ig0rmin/ich/internal/kafka"
 )
 
 type Handler struct {
+	messages *kafka.Kafka
 }
 
-func NewHandler() *Handler {
-	return &Handler{}
+func NewHandler(messages *kafka.Kafka) *Handler {
+	return &Handler{
+		messages: messages,
+	}
 }
 
 func (h *Handler) Route(root gin.IRouter) {
@@ -38,14 +40,12 @@ func (h *Handler) Join(c *gin.Context) {
 
 	log.Printf("New webscoket connection\n")
 
-	client := &Client{
-		Conn:    conn,
-		Message: make(chan string),
+	client, err := NewClient(conn, h.messages)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create Client"})
+		return
 	}
-
-	go func() {
-		client.Message <- fmt.Sprintf(`{"message": "%s joined the chat"}`, c.GetString(user.UserNameKey))
-	}()
+	defer client.Close()
 
 	go client.write()
 	client.read()

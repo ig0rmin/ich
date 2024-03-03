@@ -5,26 +5,37 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"github.com/ig0rmin/ich/internal/kafka"
 )
 
 type Client struct {
-	Conn    *websocket.Conn
-	Message chan string
+	Conn     *websocket.Conn
+	messages *kafka.Kafka
+	publish  chan []byte
 }
 
-// FIXME: this is echo client to test websocket connection
+func NewClient(conn *websocket.Conn, messages *kafka.Kafka) (*Client, error) {
+	c := &Client{
+		Conn:     conn,
+		messages: messages,
+		publish:  make(chan []byte),
+	}
+	//messages.Subscribe(c)
+	return c, nil
+}
+
+func (c *Client) Receive(data []byte) error {
+	c.publish <- data
+	return nil
+}
 
 func (c *Client) write() {
 	defer func() {
 		c.Conn.Close()
 	}()
 
-	if err := c.Conn.WriteJSON(gin.H{"message": "hello to the lobby"}); err != nil {
-		return
-	}
-
 	for {
-		msg, ok := <-c.Message
+		msg, ok := <-c.publish
 		if !ok {
 			return
 		}
@@ -48,9 +59,12 @@ func (c *Client) read() {
 			break
 		}
 
-		log.Printf("Received message: %v\n", string(msg))
-		go func() {
-			c.Message <- string(msg)
-		}()
+		log.Printf("Websockets received message: %v\n", string(msg))
+
+		//c.messages.Publish(msg)
 	}
+}
+
+func (c *Client) Close() {
+	c.messages.Unsubscribe(c)
 }
