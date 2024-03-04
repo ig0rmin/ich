@@ -17,11 +17,10 @@ type Kafka struct {
 	producer          sarama.SyncProducer
 	consumer          sarama.Consumer
 	partitionConsumer sarama.PartitionConsumer
+	publish           chan []byte
 
-	subscribe   chan Receiver
-	unsubscribe chan Receiver
-	publish     chan []byte
-	receivers   map[Receiver]bool
+	receivers      map[Receiver]struct{}
+	receiversMutex sync.Mutex
 
 	wg *sync.WaitGroup
 }
@@ -54,20 +53,22 @@ func NewKafka(cfg Config, topic string) (*Kafka, error) {
 		producer:          producer,
 		consumer:          consumer,
 		partitionConsumer: partitionConsumer,
-		subscribe:         make(chan Receiver),
-		unsubscribe:       make(chan Receiver),
 		publish:           make(chan []byte),
-		receivers:         make(map[Receiver]bool),
+		receivers:         make(map[Receiver]struct{}),
 		wg:                &sync.WaitGroup{},
 	}, nil
 }
 
 func (k *Kafka) Subscribe(r Receiver) {
-	k.subscribe <- r
+	k.receiversMutex.Lock()
+	k.receivers[r] = struct{}{}
+	k.receiversMutex.Unlock()
 }
 
 func (k *Kafka) Unsubscribe(r Receiver) {
-	k.unsubscribe <- r
+	k.receiversMutex.Lock()
+	delete(k.receivers, r)
+	k.receiversMutex.Unlock()
 }
 
 func (k *Kafka) Publish(data []byte) {
@@ -95,10 +96,6 @@ func (k *Kafka) consume(ctx context.Context) {
 Loop:
 	for {
 		select {
-		case r := <-k.subscribe:
-			k.receivers[r] = true
-		case r := <-k.unsubscribe:
-			delete(k.receivers, r)
 		case err := <-k.partitionConsumer.Errors():
 			if err == nil {
 				log.Fatalf("Received nil message from Kafka, probably closed connection")
@@ -109,9 +106,11 @@ Loop:
 				log.Fatalf("Received nil message from Kafka, probably closed connection")
 			}
 			log.Printf("Kafka receidved message %v from the topic %v", string(msg.Value), k.topic)
+			k.receiversMutex.Lock()
 			for r := range k.receivers {
 				r.Receive(msg.Value)
 			}
+			k.receiversMutex.Unlock()
 		case <-ctx.Done():
 			break Loop
 		}

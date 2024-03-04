@@ -39,6 +39,7 @@ func NewMockServer(t *testing.T, ctx context.Context) *MockServer {
 func (m *MockServer) Close() {
 	m.topic.Wait()
 	m.topic.Close()
+	m.messages.Close()
 }
 
 type MockMessageListener struct {
@@ -72,6 +73,4 @@ func TestMessages(t *testing.T) {
 
 	require.Equal(t, 1, len(listener.Received))
 	require.Contains(t, listener.Received, *msg)
-
-	server.messages.Close()
 }

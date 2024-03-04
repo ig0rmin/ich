@@ -19,6 +19,7 @@ type MockServer struct {
 func (m *MockServer) Close() {
 	m.users.Wait()
 	m.users.Close()
+	m.userManager.Close()
 }
 
 func NewMockServer(t *testing.T, ctx context.Context) *MockServer {
@@ -106,8 +107,4 @@ func TestUserManager(t *testing.T) {
 	require.Contains(t, userListener.Joined, "Spongebob")
 	require.Equal(t, 1, len(userListener.Left))
 	require.Contains(t, userListener.Left, "Spongebob")
-
-	// Make the UserManager unsubscribe from events
-	server1.userManager.Close()
-	server2.userManager.Close()
 }
