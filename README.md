@@ -39,7 +39,7 @@ ICH_PORT=8081 ./server
 
 ## Testing from CLI
 
-Note: I like testing the backend using CLI tools, but feel free to use Podman or whatever you like.
+Note: I like testing the backend using CLI tools, but feel free to use Postman or whatever you like.
 
 Create one ore more test users:
 ```bash
