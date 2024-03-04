@@ -1,34 +1,44 @@
 package ws
 
 import (
+	"encoding/json"
 	"log"
 	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/ig0rmin/ich/internal/api"
-	"github.com/ig0rmin/ich/internal/kafka"
+	"github.com/ig0rmin/ich/internal/messages"
 	"github.com/ig0rmin/ich/internal/users"
 )
 
 type Client struct {
-	conn *websocket.Conn
-	//TODO: Replace by MessageManager
-	messages *kafka.Kafka
+	userName string
+	conn     *websocket.Conn
+	messages *messages.Messages
 	userMgr  *users.UserManager
 	publish  chan any
 }
 
-func NewClient(conn *websocket.Conn, userMgr *users.UserManager, messages *kafka.Kafka) (*Client, error) {
+func NewClient(conn *websocket.Conn, userName string, userMgr *users.UserManager, msg *messages.Messages) (*Client, error) {
 	c := &Client{
+		userName: userName,
 		conn:     conn,
-		messages: messages,
+		messages: msg,
 		userMgr:  userMgr,
 		publish:  make(chan any),
 	}
-	messages.Subscribe(c)
-	c.userMgr.Subscribe(c)
 	return c, nil
+}
+
+func (c *Client) Init() {
+	c.messages.Subscribe(c)
+	c.userMgr.Subscribe(c)
+}
+
+func (c *Client) Close() {
+	c.messages.Unsubscribe(c)
+	c.userMgr.Unsubscribe(c)
 }
 
 func (c *Client) ReceiveChatMessage(sentAt time.Time, chatMsg *api.ChatMessage) {
@@ -58,27 +68,8 @@ func (c *Client) ReceiveUserLeft(user *api.UserLeftMsg) {
 	c.publish <- msg
 }
 
-func (c *Client) usersOnline() *api.Msg {
-	msg := &api.Msg{
-		Type:   api.TypeUsersOnline,
-		SentAt: time.Now(),
-		Msg: &api.UsersOnline{
-			List: c.userMgr.GetUsersOnline(),
-		},
-	}
-	return msg
-}
-
-// TODO: Typed data
-func (c *Client) Receive(data []byte) error {
-	c.publish <- data
-	return nil
-}
-
 func (c *Client) write() {
-	defer func() {
-		c.conn.Close()
-	}()
+	defer c.conn.Close()
 
 	// Send the list of users online as the first message to the new client
 	if err := c.conn.WriteJSON(c.usersOnline()); err != nil {
@@ -97,9 +88,7 @@ func (c *Client) write() {
 }
 
 func (c *Client) read() {
-	defer func() {
-		c.conn.Close()
-	}()
+	defer c.conn.Close()
 
 	for {
 		_, msg, err := c.conn.ReadMessage()
@@ -111,12 +100,36 @@ func (c *Client) read() {
 		}
 
 		log.Printf("Websockets received message: %v", strings.TrimSuffix(string(msg), "\n"))
-
-		c.messages.Publish(msg)
+		c.processChatMessage(msg)
 	}
 }
 
-func (c *Client) Close() {
-	c.messages.Unsubscribe(c)
-	c.userMgr.Unsubscribe(c)
+func (c *Client) processChatMessage(data []byte) {
+	chatMsg := &api.ChatMessage{}
+	msg := &api.Msg{
+		Msg: chatMsg,
+	}
+	if err := json.Unmarshal(data, msg); err != nil {
+		log.Printf("Can't parse JSON")
+		return
+	}
+	if msg.Type != api.TypeChatMessage {
+		log.Printf("Unsupported message type: %v", msg.Type)
+		return
+	}
+	// Prevent spoofing user name
+	chatMsg.From = c.userName
+
+	c.messages.PostChatMessage(chatMsg)
+}
+
+func (c *Client) usersOnline() *api.Msg {
+	msg := &api.Msg{
+		Type:   api.TypeUsersOnline,
+		SentAt: time.Now(),
+		Msg: &api.UsersOnline{
+			List: c.userMgr.GetUsersOnline(),
+		},
+	}
+	return msg
 }

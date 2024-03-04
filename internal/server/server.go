@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/ig0rmin/ich/internal/db"
 	"github.com/ig0rmin/ich/internal/kafka"
+	"github.com/ig0rmin/ich/internal/messages"
 	"github.com/ig0rmin/ich/internal/user"
 	"github.com/ig0rmin/ich/internal/users"
 	"github.com/ig0rmin/ich/internal/ws"
@@ -29,6 +30,7 @@ type Server struct {
 	users    *kafka.Kafka
 
 	userMgr *users.UserManager
+	msg     *messages.Messages
 
 	server *http.Server
 	router *gin.Engine
@@ -66,6 +68,11 @@ func NewServer(cfg *Config) (*Server, error) {
 		return nil, err
 	}
 
+	s.msg, err = messages.NewMessages(s.messages)
+	if err != nil {
+		return nil, err
+	}
+
 	s.router = gin.Default()
 
 	// Set up routes
@@ -87,7 +94,7 @@ func NewServer(cfg *Config) (*Server, error) {
 		})
 	})
 
-	ws.NewHandler(s.userMgr, s.messages).Route(authenticated)
+	ws.NewHandler(s.userMgr, s.msg).Route(authenticated)
 
 	s.server = &http.Server{
 		Addr:    "0.0.0.0:" + cfg.Port,
@@ -105,12 +112,11 @@ func (s *Server) Run() error {
 	go s.users.Run(ctx)
 
 	s.userMgr.Init()
+	s.msg.Init()
 
 	if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return err
 	}
-
-	// TODO: Shutdown the server
 
 	log.Println("Http server done")
 
@@ -128,4 +134,5 @@ func (s *Server) Close() {
 	s.db.Close()
 	s.messages.Close()
 	s.users.Close()
+	s.msg.Close()
 }
