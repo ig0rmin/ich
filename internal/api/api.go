@@ -20,9 +20,15 @@ type UsersOnline struct {
 	List []string `json:"list"`
 }
 
+type ChatMessage struct {
+	From string `json:"from_user"`
+	Text string `json:"text"`
+}
+
 const (
 	TypeServerJoined = "server_joined"
 	TypeUserJoined   = "user_joined"
 	TypeUserLeft     = "user_left"
 	TypeUsersOnline  = "users_online"
+	TypeChatMessage  = "chat_message"
 )

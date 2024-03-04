@@ -31,6 +31,15 @@ func NewClient(conn *websocket.Conn, userMgr *users.UserManager, messages *kafka
 	return c, nil
 }
 
+func (c *Client) ReceiveChatMessage(sentAt time.Time, chatMsg *api.ChatMessage) {
+	msg := &api.Msg{
+		Type:   api.TypeChatMessage,
+		SentAt: time.Now(),
+		Msg:    chatMsg,
+	}
+	c.publish <- msg
+}
+
 func (c *Client) ReceiveUserJoined(user *api.UserJoinedMsg) {
 	msg := &api.Msg{
 		Type:   api.TypeUserJoined,

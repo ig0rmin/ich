@@ -58,10 +58,10 @@ func (l *MockUsersListener) ReceiveUserLeft(msg *api.UserLeftMsg) {
 
 func TestUserManager(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	server1 := NewMockServer(t, ctx)
 	defer server1.Close()
+	defer cancel()
 
 	var userListener MockUsersListener
 	server1.userManager.Subscribe(&userListener)
@@ -78,6 +78,7 @@ func TestUserManager(t *testing.T) {
 
 	server2 := NewMockServer(t, ctx)
 	defer server2.Close()
+	defer cancel()
 
 	// Let Kafka time to process messages
 	time.Sleep(500 * time.Millisecond)
@@ -111,7 +112,4 @@ func TestUserManager(t *testing.T) {
 	// Make the UserManager unsubscribe from events
 	server1.userManager.Close()
 	server2.userManager.Close()
-
-	/// Shut down mock server
-	cancel()
 }

@@ -40,7 +40,7 @@ func TestKafka(t *testing.T) {
 	messages.Publish(data)
 
 	// Give Kafka time to receive the message
-	time.Sleep(1 * time.Second)
+	time.Sleep(500 * time.Millisecond)
 
 	cancel()
 
