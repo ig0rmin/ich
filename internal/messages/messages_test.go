@@ -2,7 +2,6 @@ package messages
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
 
@@ -18,7 +17,6 @@ type MockServer struct {
 }
 
 func NewMockServer(t *testing.T, ctx context.Context) *MockServer {
-	os.Chdir("../..")
 	var cfg kafka.Config
 	require.NoError(t, config.Load(&cfg))
 

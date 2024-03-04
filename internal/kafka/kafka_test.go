@@ -2,7 +2,6 @@ package kafka
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
 
@@ -20,7 +19,6 @@ func (s *MockSubscirber) Receive(data []byte) error {
 }
 
 func TestKafka(t *testing.T) {
-	os.Chdir("../..")
 	var cfg Config
 	require.NoError(t, config.Load(&cfg))
 

@@ -2,7 +2,6 @@ package users
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
 
@@ -23,7 +22,6 @@ func (m *MockServer) Close() {
 }
 
 func NewMockServer(t *testing.T, ctx context.Context) *MockServer {
-	os.Chdir("../..")
 	var cfg kafka.Config
 	require.NoError(t, config.Load(&cfg))
 
