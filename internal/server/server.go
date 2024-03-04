@@ -5,6 +5,10 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/ig0rmin/ich/internal/db"
@@ -104,7 +108,7 @@ func NewServer(cfg *Config) (*Server, error) {
 	return s, nil
 }
 
-func (s *Server) Run() error {
+func (s *Server) Run() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -114,20 +118,38 @@ func (s *Server) Run() error {
 	s.userMgr.Init()
 	s.msg.Init()
 
-	if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		return err
-	}
+	go func() {
+		if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("ListenAndServe: %v", err)
+		}
+	}()
+
+	s.waitForInterrupt()
 
 	log.Println("Http server done")
 
+	// Stop Kafka
 	cancel()
 
 	s.messages.Wait()
 	s.users.Wait()
 
 	log.Println("Kafka done")
+}
 
-	return nil
+func (s *Server) waitForInterrupt() {
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
+
+	<-sig
+
+	// Timeout for gracefull shutdown
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := s.server.Shutdown(ctx); err != nil {
+		log.Fatalf("Server Shutdown Failed: %+v", err)
+	}
 }
 
 func (s *Server) Close() {
