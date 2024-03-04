@@ -1,5 +1,3 @@
-ich means Igor's Chat.
-
 ## About
 
 ich is a backend of a hypotetical *lobby chat*, implemented as this [assignment](https://github.com/noice-com/developer-assignment). The chat implements only required features (getting the list of users online, updates on users joining and leaving, receiving and sending messages, etc.) and do not implement other features that would be nice to have in the real-world application (e.g. chat history or the ability to edit and delete messages).
